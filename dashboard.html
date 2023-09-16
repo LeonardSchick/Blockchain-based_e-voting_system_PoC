@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.3.5/dist/web3.min.js"></script>
+    <style>
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 20px;
+            background-color: #333;
+        }
+
+        .navbar a {
+            color: #fff;
+            text-decoration: none;
+            padding: 10px 15px;
+        }
+
+        .poll-card {
+            border: 2px solid #333 !important;
+            padding: 10px;
+            margin: 10px 0;
+        }
+
+        
+
+        button {
+			margin: 5px;
+            margin-top: 15px;
+			padding: 10px;
+			background-color: #007BFF;
+			border: none;
+			border-radius: 5px;
+			color: #fff;
+			cursor: pointer;
+			font-size: 16px;
+		}
+
+		button:hover {
+			background-color: #0056b3;
+		}
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <a href="#my-account">My Account</a>
+        <a href="/logout">Logout</a>
+    </nav>
+    
+    <div id="createPollForm">
+        <h2>Create a Poll</h2>
+        
+        <!-- Option Names -->
+        <label for="option1">Option 1:</label>
+        <input type="text" id="option1" name="option1"><br><br>
+        
+        <label for="option2">Option 2:</label>
+        <input type="text" id="option2" name="option2"><br><br>
+    
+        <label for="option3">Option 3:</label>
+        <input type="text" id="option3" name="option3"><br><br>
+    
+        <!-- Start Date and Time -->
+        <label for="startDate">Start Date (DD-MM-YYYY):</label>
+        <input type="text" id="startDate" name="startDate">
+
+        <label for="startTime">Start Time (HH:MM):</label>
+        <input type="text" id="startTime" name="startTime"><br><br>
+
+        <!-- End Date and Time -->
+        <label for="endDate">End Date (DD-MM-YYYY):</label>
+        <input type="text" id="endDate" name="endDate">
+
+        <label for="endTime">End Time (HH:MM):</label>
+        <input type="text" id="endTime" name="endTime"><br><br>
+    
+        <!-- Submit Button -->
+        <button type="button" onclick="submitCreatePoll()">Create Poll</button>
+    </div>
+
+    <section id="polls">
+        <h2>Polls</h2>
+        <div id="poll-container">
+            <!-- Poll cards will be dynamically added here -->
+        </div>
+    </section>
+    
+
+    <script src="dashboard.js"></script>
+	
+</body>
+</html>

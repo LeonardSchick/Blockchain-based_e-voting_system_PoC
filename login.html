@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Login - Voting Application</title>
+	<style>
+		body {
+			font-family: Arial, sans-serif;
+			padding: 0;
+			margin: 0;
+			height: 100vh;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			background-color: #f4f4f4;
+		}
+
+		.login-container {
+			width: 300px;
+			padding: 20px;
+			border-radius: 5px;
+			background-color: #fff;
+			box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+		}
+
+		.login-container h2 {
+			text-align: center;
+			margin-bottom: 20px;
+		}
+
+		.input-group {
+			margin: 0px 20px 20px 0px;
+		}
+
+		label {
+			display: block;
+			margin-bottom: 5px;
+		}
+
+		input[type="text"], input[type="password"] {
+			width: 100%;
+			padding: 10px;
+			border: 1px solid #ccc;
+			border-radius: 4px;
+		}
+
+		button {
+			width: 100%;
+			padding: 10px;
+			background-color: #007BFF;
+			border: none;
+			border-radius: 5px;
+			color: #fff;
+			cursor: pointer;
+			font-size: 16px;
+		}
+
+		button:hover {
+			background-color: #0056b3;
+		}
+
+	</style>
+</head>
+
+<body>
+	<div class="login-container">
+		<h2>Voting Application Login</h2>
+		<form action="/login" method="post">
+			<div class="input-group">
+				<label for="username">Username:</label>
+				<input type="text" id="username" name="username" required>
+			</div>
+			<div class="input-group">
+				<label for="password">Password:</label>
+				<input type="password" id="password" name="password" required>
+			</div>
+			<button type="submit">Login</button>
+		</form>
+	</div>
+	<script>
+		window.onload = function() {
+			const urlParams = new URLSearchParams(window.location.search);
+			const error = urlParams.get('error');
+	
+			if (error === 'InvalidCredentials') {
+				// Make input boxes red
+				const usernameInput = document.getElementById('username');
+				const passwordInput = document.getElementById('password');
+				
+				usernameInput.style.borderColor = 'red';
+				passwordInput.style.borderColor = 'red';
+				
+				// Add error message above the form
+				const errorMessage = document.createElement('p');
+				errorMessage.textContent = "Invalid username or password!";
+				errorMessage.style.color = 'red';
+				errorMessage.style.textAlign = 'center';
+				
+				const form = document.querySelector('form');
+				form.insertBefore(errorMessage, form.firstChild);
+			}
+		}
+	</script>
+	
+</body>
+
+</html>

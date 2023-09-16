@@ -1,0 +1,705 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Setup</title>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.3.5/dist/web3.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            text-align: left;
+        }
+        .container {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0px 4px 6px #aaa;
+            max-width: 600px;
+            margin: auto;
+        }
+        button {
+            background-color: #007BFF;
+            color: white;
+            padding: 14px 20px;
+            margin: 8px 0;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        input {
+            border-radius: 4px;
+            margin: 8px 0;
+        }
+
+        #walletSection, #passwordSection{
+            display: flex;
+            align-items: center; /* Vertical alignment */
+            margin: 10px;
+        }
+
+        #generateWalletBtn, #walletAddress ,#okAddress, 
+        #walletPassword, #completeSetupBtn{
+            height: 40px;
+            box-sizing: border-box;
+            padding: 0;
+            margin: 0;
+            line-height: 40px;
+        }
+
+        #generateWalletBtn {
+            flex: 1;  /* Take up remaining space */
+        }
+
+        #walletAddress {
+            flex: 3;  /* Take up remaining space */
+            display: none; /* Initially hidden */
+            margin-left: 10px;
+            padding-left: 5px;
+            border: "gray";
+        }
+        
+        #okAddress {
+            margin-left: 10px;
+            display: none;
+            width: 40px;
+        }
+
+        #addrLabel {
+            display: none;
+        }
+
+        #walletPassword {
+            width:73%;
+            margin-bottom: 10px;
+            border: "gray";
+        }
+
+        #completeSetupBtn {
+            padding-left: 10px;
+            padding-right: 10px;
+            margin-top: 10px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .spinner {
+            border: 10px solid #f3f3f3; 
+            border-top: 10px solid #3498db; 
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 2s forwards infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Welcome!</h1>
+        <p>To vote, you need to first</p>
+            <li id="step1">Create a wallet</li>
+            <li id="step2">Create a password for your wallet</li>
+            <li id="step3">Receive voting rights</li>  
+        <div id="walletSection">
+            <label for="walletAddress" id="addrLabel">Wallet Address:</label>
+            <button id="generateWalletBtn">Generate Wallet</button>
+            <!-- Input box to display the wallet address -->
+            <input type="text" id="walletAddress" readonly style="display:none;">
+            <button id="okAddress">Ok</button>
+        </div>
+
+        <div id="passwordSection" style="display:none;">
+            <label for="walletPassword">Set Wallet Password:</label>
+            <input type="password" id="walletPassword" name="walletPassword">
+            <span id="passwordWarning" style="color:red;display:none;">Password must be at least 6 characters long.</span>
+            <div style="text-align: right;">
+                <button id="completeSetupBtn">Complete</button>
+            </div>
+            
+        </div>
+
+        <div id="loader" class="hidden">
+            <div class="spinner"></div>
+        </div>
+    </div>
+    
+    <script type="module">
+        import { keccak256 } from 'https://cdn.skypack.dev/js-sha3';
+        import { Buffer } from 'https://cdn.skypack.dev/buffer';
+        import BigInteger from 'https://cdn.skypack.dev/bigi';
+        import ecurve from 'https://cdn.skypack.dev/ecurve';
+        
+        let web3;
+        if (typeof window.ethereum !== 'undefined') 
+                web3 = new Web3(window.ethereum);
+        
+        function getRandomBytes(size) {
+    		var array = new Uint8Array(size);
+    		window.crypto.getRandomValues(array);
+    		return array;
+		}
+
+		function random(bytes){
+				do {
+						var k = BigInteger.fromByteArrayUnsigned(getRandomBytes(bytes));
+				} while (k.toString() == "0" && k.gcd(n).toString() != "1")
+				return k;
+		}
+
+        function multiply(inp,k){
+				var str = inp.multiply(k).toString().replace("(","").replace(")","");
+				var arr = str.split(",").map(val => String(val));
+				arr [0] = BigInteger.fromBuffer(arr[0]);
+				arr [1] = BigInteger.fromBuffer(arr[1]);
+
+				return ecurve.Point.fromAffine(ecparams,arr[0],arr[1]);
+		}
+
+		function add(inp,k){
+				var str = inp.add(k).toString().replace("(","").replace(")","");
+				var arr = str.split(",").map(val => String(val));
+				arr [0] = BigInteger.fromBuffer(arr[0]);
+				arr [1] = BigInteger.fromBuffer(arr[1]);
+
+				return ecurve.Point.fromAffine(ecparams,arr[0],arr[1]);
+		}
+
+		function toHex(inp){
+				return BigInteger.fromBuffer(inp.toString(),"hex").toHex();
+		}
+
+        function initializeContract() {
+            if (typeof window.ethereum !== 'undefined') {
+                const contract = new web3.eth.Contract(contractABI, contractAddress);
+                return contract;
+            } else {
+                console.error("Ethereum provider (e.g., MetaMask) not detected");
+            }
+        }
+        
+        async function verifyBlindSignature(r, s) {
+            try {
+                //Request access to Ethereum accounts
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
+                //Get the current user's account
+                const accounts = await web3.eth.getAccounts();
+                const currentAccount = accounts[0];
+
+                //Send the transaction
+                const receipt = await contract.methods.verifyBlindSig(r, s).send({ from: currentAccount });
+                console.log('Transaction receipt:', receipt);
+            } catch (error) {
+                console.error('Error sending transaction:', error);
+            }
+        }
+
+        //TODO: implement AES encryption, data = wallet.encrypt(password) == keystore
+        async function encryptAES(data, password) {
+        }
+
+
+        const ecparams = ecurve.getCurveByName('secp256k1');
+        const G = ecparams.G;
+		const n = ecparams.n;
+
+        const contractAddress = "0xbE15543f7FDafEA0ACbFF648D8398f6c2fB5188c";
+        const contractABI = [
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "rate",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "changeRatelimit",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "string[]",
+                        "name": "optionNames",
+                        "type": "string[]"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "startTime",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "endTime",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "createPoll",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "bool",
+                        "name": "enabled",
+                        "type": "bool"
+                    }
+                ],
+                "name": "ratelimiterSwitch",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "pollId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "removePoll",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256[2]",
+                        "name": "pubKey",
+                        "type": "uint256[2]"
+                    }
+                ],
+                "stateMutability": "nonpayable",
+                "type": "constructor"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "uint256",
+                        "name": "pollId",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "startTime",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "endTime",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "PollCreated",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "uint256",
+                        "name": "pollId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "PollRemoved",
+                "type": "event"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "voter",
+                        "type": "address"
+                    }
+                ],
+                "name": "revokeVotingRight",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "c",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "s",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "verifyBlindSig",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "pollId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "option",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "vote",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "uint256",
+                        "name": "pollId",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "voter",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "uint256",
+                        "name": "option",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "VoteCast",
+                "type": "event"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "pollId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "voteTally",
+                "outputs": [
+                    {
+                        "internalType": "string[]",
+                        "name": "optionNames_",
+                        "type": "string[]"
+                    },
+                    {
+                        "internalType": "uint256[]",
+                        "name": "voteCounts_",
+                        "type": "uint256[]"
+                    }
+                ],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "admin",
+                "outputs": [
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "generatorPoint",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "pollCounter",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "polls",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "id",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "pollStart",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "pollEnd",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "pubKeyOfOrganizer",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "name": "voters",
+                "outputs": [
+                    {
+                        "internalType": "bool",
+                        "name": "voteRight",
+                        "type": "bool"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "lastReq",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            }
+        ]; 
+        const contract = initializeContract();
+
+        let voterWallet;
+        let password;
+
+        document.getElementById("generateWalletBtn").addEventListener("click", async function() {
+            // Generate the wallet
+            voterWallet = web3.eth.accounts.create();
+            // Display the wallet address
+            document.getElementById("walletAddress").value = voterWallet.address;
+            document.getElementById("walletAddress").style.display = "block";
+            document.getElementById("okAddress").style.display = "block";
+        });
+
+        document.getElementById("okAddress").addEventListener("click", function() {
+            document.getElementById("walletAddress").style.color = "green";
+            document.getElementById("step1").style.color = "green";
+            document.getElementById("generateWalletBtn").style.display = "none";
+            document.getElementById("okAddress").style.display = "none";
+            document.getElementById("addrLabel").style.display = "block";
+
+            // Show the next step
+            document.getElementById("passwordSection").style.display = "block";
+        });
+
+
+        document.getElementById("completeSetupBtn").addEventListener("click", function() {
+            document.getElementById("loader").classList.remove("hidden");
+
+            const password = document.getElementById("walletPassword").value;
+            if (password.length >= 6){
+                (async () => {
+                    try {
+                        // STEP 1 - Get R and P from server
+                        const res1 = await fetch('/setup/generate-random-integer');
+                        const data1 = await res1.json();
+                        
+                        //R is a randomly selected point on the curve
+                        const Rx = BigInteger.fromBuffer(data1.R.x);
+                        const Ry = BigInteger.fromBuffer(data1.R.y);
+                        const R = ecurve.Point.fromAffine(ecparams, Rx, Ry);
+                        //organizers public key in raw format (affine point)
+                        const Px = BigInteger.fromBuffer(data1.P.x);
+                        const Py = BigInteger.fromBuffer(data1.P.y);
+                        const P = ecurve.Point.fromAffine(ecparams, Px, Py);
+                        
+                        console.log("R: " + R);
+                        console.log("P: " + '(' + '0x' + toHex(P.affineX) + ', ' + '0x' + toHex(P.affineY));
+                        
+                        /* STEP 2 - Blind the address
+                        The requester randomly selects two integers Ɛ and δ ∈ Zn, blinds the message, and then
+                        calculates point A = kG +  ƐG + δP = (x, y), t = x (mod n). If t equals zero, then Ɛ and δ should
+                        be reselected. The requester calculates c = SHA3 (m || t), r’ = r − δ, where SHA3 is a
+                        novel hash function computed with 32-bit words and c’ is the blinded message, and then sends
+                        r’ to the signer.
+                        */
+                       
+                       //due to tx cost, we use this address with eth balance to test
+                       //the verification of the blind signature function on-chain
+                       const voterAddress = "0x4231a4fe2e189932184aa42deb675aaad440e0c7";
+                       //const voterAddress = voterWallet.address.toLowerCase();
+
+                        const Ɛ = random(32);
+                        const δ = random(32);
+
+                        const A = add(add(R,multiply(G,Ɛ)),multiply(P,δ));
+                        const t = A.x.mod(n).toString();
+
+                        const r = BigInteger.fromHex(keccak256(voterAddress+t.toString()));
+                        console.log("r:\n" +  '0x' + toHex(r));
+                        
+                        const rBlind = r.subtract(δ);
+                        console.log("Blinded address (rBlind): " + '0x' + toHex(rBlind));
+                        const res2 = await fetch('/setup/sign', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({"addressBlind": rBlind.toString()})
+                        });
+                        const data2 = await res2.json();
+
+                        /* STEP 4 - Unblind the signature
+                        The requester calculates s = s’ + Ɛ, and (r, s) is the signature on m.
+                        */
+                        const sBlind = BigInteger.fromBuffer(data2.sBlind);
+                        console.log("sBlind: " + sBlind);
+                        
+                        const s = sBlind.add(Ɛ).mod(n);    
+                        console.log("s: " + s);
+                        
+                        /* STEP 5 - CLIENT
+                        Both the requester and signer can verify the signature (r, s) through the formation
+                        r = SHA3(voterAddress || Rx(rP + sG) mod n)
+                        */
+                        const toHash = add(multiply(P,r),multiply(G,s)).x.mod(n);
+                        const r_verify = BigInteger.fromHex(keccak256(voterAddress+toHash).toString()).toString();
+                        
+                        console.log("r_verify: ");
+                        console.log('0x' + toHex(r_verify));
+
+                        console.log("s: ");
+                        console.log('0x' + toHex(s));
+
+                        if (r == r_verify){
+                            console.log("Signature is valid");
+                            document.getElementById("step3").style.color = "green";
+                        }else{
+                            console.log("Invalid Signature");
+                            document.getElementById("step3").style.color = "red";
+                            //handle invalid signature more
+                        }
+                        
+                        //Send signature (r, s) to smart contract from address for whitelisting
+                        await verifyBlindSignature(r.toString(),s.toString());
+
+                        //create keystore and encrypt it
+                        const keystore = await voterWallet.encrypt(password);
+                        //const encryptedKeystore = await encryptAES(keystore, password);
+
+                        //store encrypted keystore in server database
+                        const res3 = await fetch('/setup/store-encrypted-wallet', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({"keystore": JSON.stringify(keystore)})
+                        });
+                        const data3 = await res3.json();
+                        
+                        
+                    } catch (error){console.error('Error:', error);}
+                })();
+                
+                setTimeout(() => {
+                    document.getElementById("loader").classList.add("hidden");
+                    // Redirect to the dashboard after 3 sec
+                    window.location.href = "/dashboard";
+                }, 3000);
+            }
+        });
+
+        document.getElementById("walletPassword").addEventListener("input", function() {
+            password = document.getElementById("walletPassword").value;
+
+            const warning = document.getElementById("passwordWarning");
+            if (password.length < 6) {
+                // Add a red border to the password field and display warning
+                document.getElementById("walletPassword").style.border = "1px solid red";
+                warning.style.display = "inline";  // Show the warning message
+                document.getElementById("completeSetupBtn").disabled = true;
+                document.getElementById("completeSetupBtn").style.backgroundColor = "grey";
+                document.getElementById("step2").style.color = "black";
+            } else {
+                // Remove the red border and hide the warning
+                document.getElementById("walletPassword").style.border = "none"; 
+                warning.style.display = "none";  // Hide the warning message
+                document.getElementById("completeSetupBtn").disabled = false;
+                document.getElementById("completeSetupBtn").style.backgroundColor = "#007BFF";
+                document.getElementById("step2").style.color = "green";
+            }
+        });
+    </script>
+</body>
+
+</html>
